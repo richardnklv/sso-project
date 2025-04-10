@@ -2,11 +2,40 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
 
+// Import constants
+import {
+  AUTH_CODE_EXPIRATION_SECONDS,
+  ACCESS_TOKEN_BYTES,
+  REFRESH_TOKEN_BYTES,
+  AUTH_CODE_BYTES
+} from '../db/constants';
+
 // Import database models
 import { AuthCodeModel } from '../db/models/authCode';
 import { AccessTokenModel } from '../db/models/accessToken';
 import { RefreshTokenModel } from '../db/models/refreshToken';
 import { ClientModel } from '../db/models/client';
+
+// OAuth specific constants
+const TOKEN_TYPE_BEARER = 'Bearer';
+
+// Error types
+const ERROR = {
+  MISSING_CLIENT_ID: 'missing_client_id',
+  MISSING_REDIRECT_URI: 'missing_redirect_uri',
+  UNSUPPORTED_RESPONSE_TYPE: 'unsupported_response_type',
+  INVALID_CLIENT: 'invalid_client',
+  INVALID_REDIRECT_URI: 'invalid_redirect_uri',
+  UNSUPPORTED_GRANT_TYPE: 'unsupported_grant_type',
+  MISSING_CLIENT_SECRET: 'missing_client_secret',
+  MISSING_CODE: 'missing_code',
+  INVALID_GRANT: 'invalid_grant',
+  MISSING_CODE_VERIFIER: 'missing_code_verifier',
+  INVALID_CODE_VERIFIER: 'invalid_code_verifier',
+  MISSING_REFRESH_TOKEN: 'missing_refresh_token',
+  SERVER_ERROR: 'server_error',
+  EXPIRED_CODE: 'expired_code'
+};
 
 // Types
 export interface AuthorizationRequest {
@@ -53,17 +82,17 @@ export const validateAuthorizationRequest = async (
   req: AuthorizationRequest
 ): Promise<{ valid: boolean; error?: string; client?: any }> => {
   // Validate required parameters
-  if (!req.client_id) return { valid: false, error: 'missing_client_id' };
-  if (!req.redirect_uri) return { valid: false, error: 'missing_redirect_uri' };
-  if (req.response_type !== 'code') return { valid: false, error: 'unsupported_response_type' };
+  if (!req.client_id) return { valid: false, error: ERROR.MISSING_CLIENT_ID };
+  if (!req.redirect_uri) return { valid: false, error: ERROR.MISSING_REDIRECT_URI };
+  if (req.response_type !== 'code') return { valid: false, error: ERROR.UNSUPPORTED_RESPONSE_TYPE };
 
   // Validate client
   const client = await ClientModel.findByClientId(req.client_id);
-  if (!client) return { valid: false, error: 'invalid_client' };
+  if (!client) return { valid: false, error: ERROR.INVALID_CLIENT };
 
   // Validate redirect URI
   if (!ClientModel.validateRedirectUri(client, req.redirect_uri)) {
-    return { valid: false, error: 'invalid_redirect_uri' };
+    return { valid: false, error: ERROR.INVALID_REDIRECT_URI };
   }
 
   return { valid: true, client };
@@ -87,7 +116,7 @@ export const generateAuthorizationCode = async (
     userId,
     redirectUri,
     scope: scope || '',
-    expiresInSeconds: 600, // 10 minutes in seconds
+    expiresInSeconds: AUTH_CODE_EXPIRATION_SECONDS,
     codeChallenge,
     codeChallengeMethod
   });
@@ -109,29 +138,29 @@ export const validateTokenRequest = async (
 }> => {
   // Validate grant type
   if (req.grant_type !== 'authorization_code' && req.grant_type !== 'refresh_token') {
-    return { valid: false, error: 'unsupported_grant_type' };
+    return { valid: false, error: ERROR.UNSUPPORTED_GRANT_TYPE };
   }
   
   // Validate client
   const client = await ClientModel.findByClientId(req.client_id);
-  if (!client) return { valid: false, error: 'invalid_client' };
+  if (!client) return { valid: false, error: ERROR.INVALID_CLIENT };
   
   // Handle confidential clients
   if (client.client_type === 'confidential') {
-    if (!req.client_secret) return { valid: false, error: 'missing_client_secret' };
+    if (!req.client_secret) return { valid: false, error: ERROR.MISSING_CLIENT_SECRET };
     
     const authenticated = await ClientModel.verifyClientCredentials(
       req.client_id,
       req.client_secret
     );
     
-    if (!authenticated) return { valid: false, error: 'invalid_client' };
+    if (!authenticated) return { valid: false, error: ERROR.INVALID_CLIENT };
   }
   
   // For authorization code grant
   if (req.grant_type === 'authorization_code') {
-    if (!req.code) return { valid: false, error: 'missing_code' };
-    if (!req.redirect_uri) return { valid: false, error: 'missing_redirect_uri' };
+    if (!req.code) return { valid: false, error: ERROR.MISSING_CODE };
+    if (!req.redirect_uri) return { valid: false, error: ERROR.MISSING_REDIRECT_URI };
     
     try {
       console.log('Validating auth code:', {
@@ -143,7 +172,7 @@ export const validateTokenRequest = async (
       const authCode = await AuthCodeModel.findByCode(req.code);
       if (!authCode) {
         console.log('Auth code not found');
-        return { valid: false, error: 'invalid_grant' };
+        return { valid: false, error: ERROR.INVALID_GRANT };
       }
       
       console.log('Auth code found, checking client_id match');
@@ -153,7 +182,7 @@ export const validateTokenRequest = async (
           codeClientId: authCode.client_id,
           requestClientId: client.id
         });
-        return { valid: false, error: 'invalid_grant' };
+        return { valid: false, error: ERROR.INVALID_GRANT };
       }
       
       console.log('Checking redirect URI match');
@@ -163,20 +192,20 @@ export const validateTokenRequest = async (
           storedUri: authCode.redirect_uri,
           requestUri: req.redirect_uri
         });
-        return { valid: false, error: 'invalid_redirect_uri' };
+        return { valid: false, error: ERROR.INVALID_REDIRECT_URI };
       }
       
       console.log('Checking expiration');
       // Check expiration
       if (new Date() > authCode.expires_at) {
         console.log('Code expired');
-        return { valid: false, error: 'expired_code' };
+        return { valid: false, error: ERROR.EXPIRED_CODE };
       }
       
       // Handle PKCE if required
       if (authCode.code_challenge && !req.code_verifier) {
         console.log('Missing code verifier');
-        return { valid: false, error: 'missing_code_verifier' };
+        return { valid: false, error: ERROR.MISSING_CODE_VERIFIER };
       }
       
       if (authCode.code_challenge && req.code_verifier) {
@@ -189,7 +218,7 @@ export const validateTokenRequest = async (
         
         if (!verified) {
           console.log('Invalid code verifier');
-          return { valid: false, error: 'invalid_code_verifier' };
+          return { valid: false, error: ERROR.INVALID_CODE_VERIFIER };
         }
       }
       
@@ -197,13 +226,13 @@ export const validateTokenRequest = async (
       return { valid: true, client, authCode };
     } catch (error) {
       console.error('Auth code validation error:', error);
-      return { valid: false, error: 'invalid_grant' };
+      return { valid: false, error: ERROR.INVALID_GRANT };
     }
   }
   
   // For refresh token grant
   if (req.grant_type === 'refresh_token') {
-    if (!req.refresh_token) return { valid: false, error: 'missing_refresh_token' };
+    if (!req.refresh_token) return { valid: false, error: ERROR.MISSING_REFRESH_TOKEN };
     
     try {
       const refreshToken = await RefreshTokenModel.validate({
@@ -212,17 +241,17 @@ export const validateTokenRequest = async (
       
       // Verify the token belongs to the right client
       if (refreshToken.client_id !== client.id) {
-        return { valid: false, error: 'invalid_grant' };
+        return { valid: false, error: ERROR.INVALID_GRANT };
       }
       
       return { valid: true, client, refreshToken };
     } catch (error) {
       console.error('Refresh token validation error:', error);
-      return { valid: false, error: 'invalid_grant' };
+      return { valid: false, error: ERROR.INVALID_GRANT };
     }
   }
   
-  return { valid: false, error: 'server_error' };
+  return { valid: false, error: ERROR.SERVER_ERROR };
 };
 
 export const generateTokens = async (
@@ -255,7 +284,7 @@ export const generateTokens = async (
     access_token: accessToken.token,
     refresh_token: refreshToken.token,
     expires_in,
-    token_type: 'Bearer'
+    token_type: TOKEN_TYPE_BEARER
   };
 };
 
@@ -300,7 +329,7 @@ export const refreshAccessToken = async (
       access_token: accessToken.token,
       refresh_token: newRefreshToken.token,
       expires_in,
-      token_type: 'Bearer'
+      token_type: TOKEN_TYPE_BEARER
     };
   } catch (error) {
     throw new Error('invalid_grant');
