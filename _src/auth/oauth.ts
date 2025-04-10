@@ -16,6 +16,9 @@ import { AccessTokenModel } from '../db/models/accessToken';
 import { RefreshTokenModel } from '../db/models/refreshToken';
 import { ClientModel } from '../db/models/client';
 
+// Import types
+import { AuthorizationRequest, TokenRequest } from './types';
+
 // OAuth specific constants
 const TOKEN_TYPE_BEARER = 'Bearer';
 
@@ -36,27 +39,6 @@ const ERROR = {
   SERVER_ERROR: 'server_error',
   EXPIRED_CODE: 'expired_code'
 };
-
-// Types
-export interface AuthorizationRequest {
-  client_id: string;
-  redirect_uri: string;
-  response_type: string;
-  scope?: string;
-  state?: string;
-  code_challenge?: string;
-  code_challenge_method?: 'plain' | 'S256';
-}
-
-export interface TokenRequest {
-  grant_type: string;
-  code?: string;
-  redirect_uri?: string;
-  client_id: string;
-  client_secret?: string;
-  code_verifier?: string;
-  refresh_token?: string;
-}
 
 // PKCE Utils
 export const generatePKCEChallenge = (verifier: string, method: 'plain' | 'S256' = 'S256'): string => {

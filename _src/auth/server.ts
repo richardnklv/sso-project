@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 // Import OAuth utilities and models
 import * as oauth from './oauth';
+import { AuthorizationRequest, TokenRequest } from './types';
 import { UserModel } from '../db/models/user';
 import { ClientModel } from '../db/models/client';
 import { AuthCodeModel } from '../db/models/authCode';
@@ -25,7 +26,7 @@ declare module 'express-session' {
   interface SessionData {
     userId?: string;
     username?: string;
-    authRequest?: oauth.AuthorizationRequest;
+    authRequest?: AuthorizationRequest;
   }
 }
 
@@ -58,7 +59,7 @@ app.get('/', (req, res) => {
 app.get('/oauth/authorize', async (req, res, next) => {
   try {
     // Validate the authorization request
-    const authReq: oauth.AuthorizationRequest = {
+    const authReq: AuthorizationRequest = {
       client_id: req.query.client_id as string,
       redirect_uri: req.query.redirect_uri as string,
       response_type: req.query.response_type as string,
@@ -107,7 +108,7 @@ app.post('/oauth/token', async (req, res, next) => {
     console.log('Token request body:', req.body);
 
     // Validate the token request
-    const tokenReq: oauth.TokenRequest = {
+    const tokenReq: TokenRequest = {
       grant_type: req.body.grant_type,
       code: req.body.code,
       redirect_uri: req.body.redirect_uri,
