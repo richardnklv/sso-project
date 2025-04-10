@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSO Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>SSO Test Client</h1>
+    
+    <div id="login-section">
+        <p>Click the button below to log in using the OAuth2 SSO provider:</p>
+        <button id="login-button">Login with SSO</button>
+    </div>
+    
+    <div id="token-section" class="hidden">
+        <h2>Authentication Successful!</h2>
+        <p>Authorization Code: <code id="auth-code"></code></p>
+        <h3>Access Token Response:</h3>
+        <pre id="token-response"></pre>
+        
+        <div>
+            <h3>User Profile:</h3>
+            <pre id="user-info">Not fetched yet</pre>
+            <button id="logout-button">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        // OAuth client configuration
+        const config = {
+            clientId: 'confidential-client',
+            clientSecret: 'client-secret',
+            authUrl: 'http://localhost:3000/oauth/authorize',
+            tokenUrl: 'http://localhost:3000/oauth/token',
+            redirectUri: 'http://localhost:8080/', // Now using our registered redirect URI
+            state: generateRandomString(16)
+        };
+        
+        // Generate a random string for state parameter
+        function generateRandomString(length) {
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let text = '';
+            for (let i = 0; i < length; i++) {
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return text;
+        }
+        
+        // Parse URL parameters
+        function getUrlParams() {
+            const params = {};
+            const queryString = window.location.search.substring(1);
+            const pairs = queryString.split('&');
+            for (const pair of pairs) {
+                const [key, value] = pair.split('=');
+                if (key) params[key] = decodeURIComponent(value || '');
+            }
+            return params;
+        }
+        
+        // Exchange authorization code for tokens
+        async function exchangeCodeForToken(code) {
+            const params = new URLSearchParams();
+            params.append('grant_type', 'authorization_code');
+            params.append('code', code);
+            params.append('redirect_uri', config.redirectUri);
+            params.append('client_id', config.clientId);
+            params.append('client_secret', config.clientSecret);
+            
+            try {
+                const response = await fetch(config.tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: params,
+                    credentials: 'include'  // Include cookies in the request
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Token exchange failed: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error exchanging code for token:', error);
+                throw error;
+            }
+        }
+        
+        // Handle the redirect from OAuth server
+        async function handleRedirect() {
+            const params = getUrlParams();
+            
+            // If there's an authorization code in the URL
+            if (params.code) {
+                document.getElementById('auth-code').textContent = params.code;
+                
+                try {
+                    // Exchange code for token
+                    const tokenResponse = await exchangeCodeForToken(params.code);
+                    
+                    // Display the token response
+                    document.getElementById('token-response').textContent = 
+                        JSON.stringify(tokenResponse, null, 2);
+                    
+                    // Show the token section
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('token-section').classList.remove('hidden');
+                    
+                    // Store tokens in session storage
+                    sessionStorage.setItem('access_token', tokenResponse.access_token);
+                    sessionStorage.setItem('refresh_token', tokenResponse.refresh_token);
+                    
+                    // Clean up the URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (error) {
+                    alert('Error during authentication: ' + error.message);
+                }
+            }
+        }
+        
+        // Initialize the login flow
+        function initializeLogin() {
+            // Check if we already have an access token
+            const accessToken = sessionStorage.getItem('access_token');
+            if (accessToken) {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('token-section').classList.remove('hidden');
+                document.getElementById('token-response').textContent = 
+                    "Using existing access token from session: " + accessToken;
+                return;
+            }
+            
+            // Handle login button click
+            document.getElementById('login-button').addEventListener('click', function() {
+                // Build the authorization URL
+                const authUrl = new URL(config.authUrl);
+                authUrl.searchParams.append('client_id', config.clientId);
+                authUrl.searchParams.append('redirect_uri', config.redirectUri);
+                authUrl.searchParams.append('response_type', 'code');
+                authUrl.searchParams.append('state', config.state);
+                authUrl.searchParams.append('scope', 'profile');
+                
+                // Redirect to the authorization server
+                window.location.href = authUrl.toString();
+            });
+            
+            // Handle logout button click
+            document.getElementById('logout-button').addEventListener('click', function() {
+                // Clear session storage
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('refresh_token');
+                
+                // Show login section again
+                document.getElementById('login-section').classList.remove('hidden');
+                document.getElementById('token-section').classList.add('hidden');
+            });
+        }
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // First check for redirect with code
+            handleRedirect();
+            
+            // Then initialize the login components
+            initializeLogin();
+        });
+    </script>
+</body>
+</html>

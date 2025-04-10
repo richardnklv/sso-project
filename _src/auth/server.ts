@@ -3,6 +3,7 @@ import session from 'express-session';
 import bodyParser from 'body-parser';
 import path from 'path';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 // Import OAuth utilities and models
 import * as oauth from './oauth';
@@ -31,6 +32,14 @@ declare module 'express-session' {
 }
 
 // Setup middleware
+// Enable CORS for all routes
+app.use(cors({
+  origin: 'http://localhost:8080', // Allow our client app
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
