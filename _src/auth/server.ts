@@ -13,6 +13,11 @@ import { AuthCodeModel } from '../db/models/authCode';
 // Load environment variables
 dotenv.config();
 
+// Constants
+const SESSION_SECRET = process.env.SESSION_SECRET || 'oauth2-sso-dev-secret';
+const SESSION_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_PORT = process.env.PORT || 3000;
+
 // Initialize Express app
 const app = express();
 // Declare session interface
@@ -31,12 +36,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Setup session handling
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'oauth2-sso-dev-secret',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: SESSION_COOKIE_MAX_AGE
   }
 }));
 
@@ -386,9 +391,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`OAuth2 server running on port ${PORT}`);
+app.listen(DEFAULT_PORT, () => {
+  console.log(`OAuth2 server running on port ${DEFAULT_PORT}`);
 });
 
 export default app;
