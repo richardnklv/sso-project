@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth2 Flow Simulator | Unified Access</title>
+    <style>
+        :root {
+            --primary-bg: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-card: rgba(255, 255, 255, 0.5);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --accent2: #10b981;
+            --accent2-light: #34d399;
+            --error: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.08);
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --code-font: 'Fira Code', 'Roboto Mono', monospace;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-bg: #0f172a;
+                --glass-bg: rgba(30, 41, 59, 0.7);
+                --glass-card: rgba(30, 41, 59, 0.5);
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--primary-bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem 1rem;
+            background-image: 
+                radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
+                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+            transition: var(--transition);
+        }
+
+        .ambient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+            background: 
+                radial-gradient(circle at 70% 30%, var(--accent-light) 0%, transparent 50%),
+                radial-gradient(circle at 30% 70%, var(--success) 0%, transparent 50%);
+            filter: blur(50px);
+            animation: ambientShift 30s infinite alternate ease-in-out;
+        }
+
+        @keyframes ambientShift {
+            0% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(1.2) rotate(3deg);
+            }
+            100% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-weight: 500;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px) saturate(180%);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-title svg {
+            width: 20px;
+            height: 20px;
+            margin-right: 0.5rem;
+            color: var(--accent);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            transition: var(--transition);
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--accent2) 0%, var(--accent2-light) 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .flow-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .flow-timeline {
+            position: absolute;
+            top: 30px;
+            left: 28px;
+            width: 4px;
+            height: calc(100% - 60px);
+            background: linear-gradient(to bottom, var(--accent), var(--accent2));
+            z-index: 1;
+        }
+
+        .flow-step {
+            display: flex;
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-indicator {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--glass-card);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+            margin-right: 1rem;
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .step-indicator svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .step-indicator.active {
+            color: white;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .step-indicator.completed {
+            color: white;
+            background: linear-gradient(135deg, var(--accent2) 0%, var(--accent2-light) 100%);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .step-content {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            background: var(--glass-card);
+            backdrop-filter: blur(5px);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+
+        .step-content.active {
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
+        }
+
+        .step-content.completed {
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+        }
+
+        .step-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .response-container {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            overflow: auto;
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            max-height: 200px;
+            display: none;
+        }
+
+        .response-container pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .response-container.visible {
+            display: block;
+        }
+
+        .info-panel {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--accent);
+            background-color: rgba(139, 92, 246, 0.1);
+            display: none;
+        }
+
+        .info-panel.visible {
+            display: block;
+        }
+
+        .token-info {
+            padding: 1rem;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .token-item {
+            font-family: var(--code-font);
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .token-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .token-value {
+            padding: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            display: block;
+        }
+
+        .user-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* Animation for token generation */
+        @keyframes tokenPulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+            }
+        }
+
+        .pulse-animation {
+            animation: tokenPulse 1.5s infinite;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-bg"></div>
+    
+    <div class="container">
+        <header>
+            <h1>OAuth2 Flow Simulator</h1>
+            <p class="subtitle">Interactive testing environment for OAuth2 authorization flow</p>
+        </header>
+        
+        <div class="card">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 7h-9"></path>
+                    <path d="M14 17H5"></path>
+                    <circle cx="17" cy="17" r="3"></circle>
+                    <circle cx="7" cy="7" r="3"></circle>
+                </svg>
+                Client Configuration
+            </div>
+            
+            <div class="form-group">
+                <label for="client_id">Client ID</label>
+                <input type="text" id="client_id" value="public-client" placeholder="Enter client identifier">
+            </div>
+            
+            <div class="form-group">
+                <label for="redirect_uri">Redirect URI</label>
+                <input type="text" id="redirect_uri" value="http://localhost:3000/test-client/callback" placeholder="Enter redirect URI">
+            </div>
+            
+            <div class="form-group">
+                <label for="scope">Scope (space separated)</label>
+                <input type="text" id="scope" value="profile email" placeholder="Enter requested scopes">
+            </div>
+        </div>
+        
+        <div class="flow-container">
+            <div class="flow-timeline"></div>
+            
+            <div class="flow-step">
+                <div class="step-indicator" id="step1-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                </div>
+                
+                <div class="step-content" id="step1-content">
+                    <div class="step-title">1. Authorization Request</div>
+                    <div class="step-description">
+                        Begin the OAuth2 flow by requesting authorization from the resource owner.
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button id="start-auth-btn" class="btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            Start Authorization
+                        </button>
+                        <button id="start-auth-pkce-btn" class="btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            Use With PKCE
+                        </button>
+                    </div>
+                    
+                    <div id="pkce-info" class="info-panel">
+                        <strong>Code Verifier:</strong> <span id="code-verifier"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-indicator" id="step2-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 12h6"></path>
+                        <path d="M12 9v6"></path>
+                        <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                </div>
+                
+                <div class="step-content" id="step2-content">
+                    <div class="step-title">2. Authorization Grant</div>
+                    <div class="step-description">
+                        After user authentication and consent, the authorization server issues an authorization code.
+                    </div>
+                    
+                    <div id="auth-code-response" class="response-container">
+                        <pre>Waiting for authorization code...</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-indicator" id="step3-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+                        <path d="M12 22V2"></path>
+                        <path d="M2 12h20"></path>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"></path>
+                        <path d="M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10"></path>
+                    </svg>
+                </div>
+                
+                <div class="step-content" id="step3-content">
+                    <div class="step-title">3. Access Token Request</div>
+                    <div class="step-description">
+                        Exchange the authorization code for an access token and refresh token.
+                    </div>
+                    
+                    <div id="token-response" class="response-container">
+                        <pre>Waiting for token exchange...</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-indicator" id="step4-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                
+                <div class="step-content" id="step4-content">
+                    <div class="step-title">4. Token Management</div>
+                    <div class="step-description">
+                        Use the acquired tokens to access protected resources or refresh when expired.
+                    </div>
+                    
+                    <div class="btn-group" id="token-actions">
+                        <button id="refresh-token-btn" class="btn-primary" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 2v6h-6"></path>
+                                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                                <path d="M3 22v-6h6"></path>
+                                <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                            </svg>
+                            Refresh Token
+                        </button>
+                        <button id="revoke-token-btn" class="btn-secondary" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            Revoke Token
+                        </button>
+                    </div>
+                    
+                    <div id="refresh-response" class="response-container">
+                        <pre>Token management operations will appear here...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" id="results-card" style="display: none;">
+            <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                Active Tokens
+            </div>
+            
+            <div class="token-info">
+                <div class="token-item">
+                    <span class="token-label">Access Token</span>
+                    <code id="access-token-display" class="token-value">Not available</code>
+                </div>
+                
+                <div class="token-item">
+                    <span class="token-label">Refresh Token</span>
+                    <code id="refresh-token-display" class="token-value">Not available</code>
+                </div>
+                
+                <div class="token-item">
+                    <span class="token-label">Expires In</span>
+                    <code id="expires-in-display" class="token-value">N/A</code>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 1.5rem;">
+                <button id="get-user-info-btn" class="btn-primary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Get User Info
+                </button>
+            </div>
+            
+            <div class="user-info" id="user-info-container" style="display: none;">
+                <p>User info endpoint not implemented in this demo.</p>
+                <p>Your access token is ready to use with protected resources.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const startAuthBtn = document.getElementById('start-auth-btn');
+        const startAuthPkceBtn = document.getElementById('start-auth-pkce-btn');
+        const refreshTokenBtn = document.getElementById('refresh-token-btn');
+        const revokeTokenBtn = document.getElementById('revoke-token-btn');
+        const getUserInfoBtn = document.getElementById('get-user-info-btn');
+        
+        // Step indicators and content
+        const stepIndicators = [
+            document.getElementById('step1-indicator'),
+            document.getElementById('step2-indicator'),
+            document.getElementById('step3-indicator'),
+            document.getElementById('step4-indicator')
+        ];
+        
+        const stepContents = [
+            document.getElementById('step1-content'),
+            document.getElementById('step2-content'),
+            document.getElementById('step3-content'),
+            document.getElementById('step4-content')
+        ];
+        
+        // Response containers
+        const pkceInfoPanel = document.getElementById('pkce-info');
+        const codeVerifierSpan = document.getElementById('code-verifier');
+        const authCodeResponse = document.getElementById('auth-code-response');
+        const tokenResponse = document.getElementById('token-response');
+        const refreshResponse = document.getElementById('refresh-response');
+        
+        // Token displays
+        const resultsCard = document.getElementById('results-card');
+        const accessTokenDisplay = document.getElementById('access-token-display');
+        const refreshTokenDisplay = document.getElementById('refresh-token-display');
+        const expiresInDisplay = document.getElementById('expires-in-display');
+        const userInfoContainer = document.getElementById('user-info-container');
+        
+        // State variables
+        let accessToken = null;
+        let refreshToken = null;
+        let codeVerifier = null;
+        let currentStep = 0;
+        
+        // Helper functions
+        function updateStep(step) {
+            currentStep = step;
+            
+            // Update all step indicators and content
+            for (let i = 0; i < stepIndicators.length; i++) {
+                if (i < step) {
+                    // Completed steps
+                    stepIndicators[i].classList.remove('active');
+                    stepIndicators[i].classList.add('completed');
+                    stepContents[i].classList.remove('active');
+                    stepContents[i].classList.add('completed');
+                } else if (i === step) {
+                    // Current step
+                    stepIndicators[i].classList.add('active');
+                    stepIndicators[i].classList.remove('completed');
+                    stepContents[i].classList.add('active');
+                    stepContents[i].classList.remove('completed');
+                } else {
+                    // Future steps
+                    stepIndicators[i].classList.remove('active', 'completed');
+                    stepContents[i].classList.remove('active', 'completed');
+                }
+            }
+        }
+        
+        function generateRandomString(length) {
+            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+            let result = '';
+            const randomValues = new Uint8Array(length);
+            window.crypto.getRandomValues(randomValues);
+            randomValues.forEach(v => result += charset[v % charset.length]);
+            return result;
+        }
+        
+        async function generateCodeChallenge(verifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(verifier);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        
+        // OAuth flow functions
+        async function startAuthFlow(usePkce = false) {
+            // Reset state
+            accessToken = null;
+            refreshToken = null;
+            updateStep(0);
+            
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            const redirectUri = document.getElementById('redirect_uri').value;
+            const scope = document.getElementById('scope').value;
+            
+            // Generate state parameter
+            const state = generateRandomString(32);
+            sessionStorage.setItem('oauth_state', state);
+            
+            // Build the authorization URL
+            const authUrl = new URL('/oauth/authorize', window.location.origin);
+            authUrl.searchParams.append('client_id', clientId);
+            authUrl.searchParams.append('redirect_uri', redirectUri);
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('state', state);
+            
+            if (scope) {
+                authUrl.searchParams.append('scope', scope);
+            }
+            
+            // If using PKCE, generate and store verifier and challenge
+            if (usePkce) {
+                codeVerifier = generateRandomString(64);
+                sessionStorage.setItem('code_verifier', codeVerifier);
+                
+                // Display the code verifier
+                codeVerifierSpan.textContent = codeVerifier;
+                pkceInfoPanel.classList.add('visible');
+                
+                // Generate code challenge
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+                
+                // Add PKCE parameters
+                authUrl.searchParams.append('code_challenge', codeChallenge);
+                authUrl.searchParams.append('code_challenge_method', 'S256');
+            } else {
+                pkceInfoPanel.classList.remove('visible');
+                sessionStorage.removeItem('code_verifier');
+                codeVerifier = null;
+            }
+            
+            // Highlight the current step
+            updateStep(1);
+            
+            // Redirect to authorization endpoint
+            window.location.href = authUrl.toString();
+        }
+        
+        async function exchangeCodeForToken(code) {
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            const redirectUri = document.getElementById('redirect_uri').value;
+            
+            // Prepare token request
+            const tokenRequest = {
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: redirectUri,
+                client_id: clientId
+            };
+            
+            // Add code verifier if using PKCE
+            const storedVerifier = sessionStorage.getItem('code_verifier');
+            if (storedVerifier) {
+                tokenRequest.code_verifier = storedVerifier;
+                codeVerifier = storedVerifier;
+                
+                // Display the code verifier
+                codeVerifierSpan.textContent = storedVerifier;
+                pkceInfoPanel.classList.add('visible');
+            }
+            
+            try {
+                // Display the authorization code
+                authCodeResponse.classList.add('visible');
+                authCodeResponse.querySelector('pre').textContent = `Authorization Code: ${code}`;
+                
+                // Update step to token request
+                updateStep(2);
+                
+                // Make token request
+                const response = await fetch('/oauth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(tokenRequest)
+                });
+                
+                const data = await response.json();
+                
+                // Display token response
+                tokenResponse.classList.add('visible');
+                tokenResponse.querySelector('pre').textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    // Store tokens
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token;
+                    
+                    // Update UI
+                    accessTokenDisplay.textContent = truncateToken(accessToken);
+                    refreshTokenDisplay.textContent = truncateToken(refreshToken);
+                    expiresInDisplay.textContent = `${data.expires_in} seconds`;
+                    
+                    // Enable token management buttons
+                    refreshTokenBtn.disabled = false;
+                    revokeTokenBtn.disabled = false;
+                    getUserInfoBtn.disabled = false;
+                    
+                    // Show results card
+                    resultsCard.style.display = 'block';
+                    
+                    // Update step to token management
+                    updateStep(3);
+                }
+            } catch (error) {
+                tokenResponse.classList.add('visible');
+                tokenResponse.querySelector('pre').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function refreshToken() {
+            if (!refreshToken) {
+                alert('No refresh token available');
+                return;
+            }
+            
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            
+            try {
+                // Make refresh token request
+                const response = await fetch('/oauth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        grant_type: 'refresh_token',
+                        refresh_token: refreshToken,
+                        client_id: clientId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Display refresh response
+                refreshResponse.classList.add('visible');
+                refreshResponse.querySelector('pre').textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    // Update tokens
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token; // New refresh token if rotation is used
+                    
+                    // Update UI
+                    accessTokenDisplay.textContent = truncateToken(accessToken);
+                    refreshTokenDisplay.textContent = truncateToken(refreshToken);
+                    expiresInDisplay.textContent = `${data.expires_in} seconds`;
+                    
+                    // Apply pulsing animation to highlight the token refresh
+                    accessTokenDisplay.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        accessTokenDisplay.classList.remove('pulse-animation');
+                    }, 1500);
+                }
+            } catch (error) {
+                refreshResponse.classList.add('visible');
+                refreshResponse.querySelector('pre').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function revokeToken() {
+            if (!accessToken) {
+                alert('No access token available');
+                return;
+            }
+            
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            
+            try {
+                // Make revocation request
+                const response = await fetch('/oauth/revoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: accessToken,
+                        client_id: clientId
+                    })
+                });
+                
+                // Display revocation response
+                refreshResponse.classList.add('visible');
+                
+                if (response.ok) {
+                    refreshResponse.querySelector('pre').textContent = 'Token successfully revoked';
+                    
+                    // Clear tokens
+                    accessToken = null;
+                    refreshToken = null;
+                    
+                    // Update UI
+                    accessTokenDisplay.textContent = 'Revoked';
+                    refreshTokenDisplay.textContent = 'Revoked';
+                    expiresInDisplay.textContent = 'N/A';
+                    
+                    // Disable token management buttons
+                    refreshTokenBtn.disabled = true;
+                    revokeTokenBtn.disabled = true;
+                    getUserInfoBtn.disabled = true;
+                } else {
+                    const data = await response.json();
+                    refreshResponse.querySelector('pre').textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                refreshResponse.classList.add('visible');
+                refreshResponse.querySelector('pre').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        function getUserInfo() {
+            if (!accessToken) {
+                alert('No access token available');
+                return;
+            }
+            
+            // In a real implementation, this would call a userinfo endpoint
+            userInfoContainer.style.display = 'block';
+            // Just show the token in this demo since we don't have a real userinfo endpoint
+            userInfoContainer.innerHTML = `
+                <p>User info endpoint not implemented in this demo.</p>
+                <p>Your access token is ready to use with protected resources:</p>
+                <pre style="background: rgba(0,0,0,0.05); padding: 10px; overflow-x: auto; margin-top: 10px;">${accessToken}</pre>
+            `;
+        }
+        
+        // Helper to truncate tokens for display
+        function truncateToken(token) {
+            if (!token) return 'Not available';
+            return token.length > 20 ? token.substring(0, 10) + '...' + token.substring(token.length - 10) : token;
+        }
+        
+        // Handle the OAuth callback
+        function handleCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            
+            // Check for errors
+            if (error) {
+                authCodeResponse.classList.add('visible');
+                authCodeResponse.querySelector('pre').textContent = `Authorization Error: ${error}`;
+                return;
+            }
+            
+            // Validate state to prevent CSRF
+            const storedState = sessionStorage.getItem('oauth_state');
+            if (state !== storedState) {
+                authCodeResponse.classList.add('visible');
+                authCodeResponse.querySelector('pre').textContent = 'Invalid state parameter - possible CSRF attack';
+                return;
+            }
+            
+            // If we have a code, exchange it for tokens
+            if (code) {
+                exchangeCodeForToken(code);
+                
+                // Remove the code from the URL without reloading the page
+                const url = new URL(window.location.href);
+                url.search = '';
+                window.history.replaceState({}, document.title, url);
+            }
+        }
+        
+        // Event listeners
+        startAuthBtn.addEventListener('click', () => startAuthFlow(false));
+        startAuthPkceBtn.addEventListener('click', () => startAuthFlow(true));
+        refreshTokenBtn.addEventListener('click', refreshToken);
+        revokeTokenBtn.addEventListener('click', revokeToken);
+        getUserInfoBtn.addEventListener('click', getUserInfo);
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if we're on a callback with authorization code
+            if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
+                handleCallback();
+            }
+        });
+    </script>
+</body>
+</html>

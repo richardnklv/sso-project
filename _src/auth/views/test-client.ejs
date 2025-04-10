@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth2 Test Client</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .section h2 {
+            margin-top: 0;
+        }
+        pre {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .secondary {
+            background-color: #34a853;
+        }
+        .secondary:hover {
+            background-color: #2d9146;
+        }
+        .warning {
+            background-color: #ea4335;
+        }
+        .warning:hover {
+            background-color: #d33426;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-row {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OAuth2 Test Client</h1>
+        
+        <div class="section">
+            <h2>1. Configure Client</h2>
+            <div class="form-row">
+                <label for="client_id">Client ID</label>
+                <input type="text" id="client_id" value="confidential-client">
+            </div>
+            <div class="form-row">
+                <label for="client_secret">Client Secret</label>
+                <input type="text" id="client_secret" value="client-secret">
+            </div>
+            <div class="form-row">
+                <label for="redirect_uri">Redirect URI</label>
+                <input type="text" id="redirect_uri" value="http://localhost:3000/test-client/callback">
+            </div>
+            <div class="form-row">
+                <label for="scope">Scope (space separated)</label>
+                <input type="text" id="scope" value="profile email">
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>2. Start Authorization Flow</h2>
+            <div>
+                <button id="start-auth-btn">Authorize</button>
+                <button id="start-auth-pkce-btn" class="secondary">Authorize with PKCE</button>
+            </div>
+            <div id="pkce-info" style="display: none; margin-top: 15px;">
+                <pre id="pkce-verifier"></pre>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>3. Access Token Response</h2>
+            <pre id="token-response">Not authorized yet</pre>
+            
+            <div style="margin-top: 15px;">
+                <button id="refresh-button" disabled>Refresh Token</button>
+                <button id="revoke-button" class="warning" disabled>Revoke Token</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>4. Use Access Token</h2>
+            <button id="userinfo-button" disabled>Get User Info</button>
+            <pre id="userinfo-response">Not requested yet</pre>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let accessToken = null;
+        let refreshToken = null;
+        let codeVerifier = null;
+        
+        // DOM elements
+        const startAuthBtn = document.getElementById('start-auth-btn');
+        const startAuthPkceBtn = document.getElementById('start-auth-pkce-btn');
+        const refreshButton = document.getElementById('refresh-button');
+        const revokeButton = document.getElementById('revoke-button');
+        const userInfoButton = document.getElementById('userinfo-button');
+        const pkceInfo = document.getElementById('pkce-info');
+        const pkceVerifier = document.getElementById('pkce-verifier');
+        const tokenResponse = document.getElementById('token-response');
+        const userInfoResponse = document.getElementById('userinfo-response');
+        
+        // Helper to generate random string for state and PKCE
+        function generateRandomString(length) {
+            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+            let result = '';
+            const randomValues = new Uint8Array(length);
+            window.crypto.getRandomValues(randomValues);
+            randomValues.forEach(v => result += charset[v % charset.length]);
+            return result;
+        }
+        
+        // Base64URL encoding for PKCE
+        function base64URLEncode(buffer) {
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        
+        // Generate code challenge from verifier
+        async function generateCodeChallenge(verifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(verifier);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            return base64URLEncode(digest);
+        }
+        
+        // Start standard OAuth flow
+        async function startAuthFlow() {
+            // Clear previous tokens
+            accessToken = null;
+            refreshToken = null;
+            
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            const redirectUri = document.getElementById('redirect_uri').value;
+            const scope = document.getElementById('scope').value;
+            
+            // Generate state parameter
+            const state = generateRandomString(32);
+            sessionStorage.setItem('oauth_state', state);
+            
+            // Clear any PKCE verifier
+            sessionStorage.removeItem('code_verifier');
+            codeVerifier = null;
+            pkceInfo.style.display = 'none';
+            
+            // Build authorization URL
+            const authUrl = new URL('/oauth/authorize', window.location.origin);
+            authUrl.searchParams.append('client_id', clientId);
+            authUrl.searchParams.append('redirect_uri', redirectUri);
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('state', state);
+            
+            if (scope) {
+                authUrl.searchParams.append('scope', scope);
+            }
+            
+            // Redirect to authorization endpoint
+            window.location.href = authUrl.toString();
+        }
+        
+        // Start OAuth flow with PKCE
+        async function startAuthFlowWithPKCE() {
+            // Clear previous tokens
+            accessToken = null;
+            refreshToken = null;
+            
+            // Get client configuration
+            const clientId = document.getElementById('client_id').value;
+            const redirectUri = document.getElementById('redirect_uri').value;
+            const scope = document.getElementById('scope').value;
+            
+            // Generate state parameter
+            const state = generateRandomString(32);
+            sessionStorage.setItem('oauth_state', state);
+            
+            // Generate and store PKCE verifier
+            codeVerifier = generateRandomString(64);
+            sessionStorage.setItem('code_verifier', codeVerifier);
+            
+            // Display the code verifier
+            pkceVerifier.textContent = `Code Verifier: ${codeVerifier}`;
+            pkceInfo.style.display = 'block';
+            
+            // Generate code challenge
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            
+            // Build authorization URL with PKCE parameters
+            const authUrl = new URL('/oauth/authorize', window.location.origin);
+            authUrl.searchParams.append('client_id', clientId);
+            authUrl.searchParams.append('redirect_uri', redirectUri);
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('state', state);
+            authUrl.searchParams.append('code_challenge', codeChallenge);
+            authUrl.searchParams.append('code_challenge_method', 'S256');
+            
+            if (scope) {
+                authUrl.searchParams.append('scope', scope);
+            }
+            
+            // Redirect to authorization endpoint
+            window.location.href = authUrl.toString();
+        }
+        
+        // Exchange authorization code for tokens
+        async function exchangeCodeForToken(code) {
+            const clientId = document.getElementById('client_id').value;
+            const clientSecret = document.getElementById('client_secret').value;
+            const redirectUri = document.getElementById('redirect_uri').value;
+            
+            // Prepare token request
+            const tokenRequest = {
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: redirectUri,
+                client_id: clientId,
+                client_secret: clientSecret
+            };
+            
+            // Add code verifier if using PKCE
+            const storedVerifier = sessionStorage.getItem('code_verifier');
+            if (storedVerifier) {
+                tokenRequest.code_verifier = storedVerifier;
+                
+                // Display the code verifier
+                pkceVerifier.textContent = `Code Verifier: ${storedVerifier}`;
+                pkceInfo.style.display = 'block';
+            }
+            
+            try {
+                // Make token request
+                const response = await fetch('/oauth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(tokenRequest)
+                });
+                
+                const data = await response.json();
+                
+                // Display response
+                tokenResponse.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    // Store tokens
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token;
+                    
+                    // Enable buttons
+                    refreshButton.disabled = false;
+                    revokeButton.disabled = false;
+                    userInfoButton.disabled = false;
+                }
+            } catch (error) {
+                tokenResponse.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        // Refresh access token
+        async function refreshAccessToken() {
+            if (!refreshToken) {
+                alert('No refresh token available');
+                return;
+            }
+            
+            const clientId = document.getElementById('client_id').value;
+            const clientSecret = document.getElementById('client_secret').value;
+            
+            try {
+                // Make refresh token request
+                const response = await fetch('/oauth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        grant_type: 'refresh_token',
+                        refresh_token: refreshToken,
+                        client_id: clientId,
+                        client_secret: clientSecret
+                    })
+                });
+                
+                const data = await response.json();
+                tokenResponse.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    // Update tokens
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token;
+                }
+            } catch (error) {
+                tokenResponse.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        // Revoke token
+        async function revokeToken() {
+            if (!accessToken) {
+                alert('No access token available');
+                return;
+            }
+            
+            const clientId = document.getElementById('client_id').value;
+            const clientSecret = document.getElementById('client_secret').value;
+            
+            try {
+                // Make revocation request
+                const response = await fetch('/oauth/revoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: accessToken,
+                        client_id: clientId,
+                        client_secret: clientSecret
+                    })
+                });
+                
+                if (response.ok) {
+                    tokenResponse.textContent = 'Token successfully revoked';
+                    
+                    // Clear tokens
+                    accessToken = null;
+                    refreshToken = null;
+                    
+                    // Disable buttons
+                    refreshButton.disabled = true;
+                    revokeButton.disabled = true;
+                    userInfoButton.disabled = true;
+                } else {
+                    const data = await response.json();
+                    tokenResponse.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                tokenResponse.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        // Get user info
+        function getUserInfo() {
+            if (!accessToken) {
+                alert('No access token available');
+                return;
+            }
+            
+            // In a real implementation, this would call a userinfo endpoint
+            userInfoResponse.textContent = 'User info endpoint not implemented in this demo. Your access token is: ' + accessToken;
+        }
+        
+        // Handle the OAuth callback
+        function handleCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            
+            // Check for errors
+            if (error) {
+                tokenResponse.textContent = `Authorization Error: ${error}`;
+                return;
+            }
+            
+            // Validate state to prevent CSRF
+            const storedState = sessionStorage.getItem('oauth_state');
+            if (state !== storedState) {
+                tokenResponse.textContent = 'Invalid state parameter - possible CSRF attack';
+                return;
+            }
+            
+            // If we have a code, exchange it for tokens
+            if (code) {
+                exchangeCodeForToken(code);
+                
+                // Remove the code from the URL without reloading the page
+                const url = new URL(window.location.href);
+                url.search = '';
+                window.history.replaceState({}, document.title, url);
+            }
+        }
+        
+        // Add event listeners
+        startAuthBtn.addEventListener('click', startAuthFlow);
+        startAuthPkceBtn.addEventListener('click', startAuthFlowWithPKCE);
+        refreshButton.addEventListener('click', refreshAccessToken);
+        revokeButton.addEventListener('click', revokeToken);
+        userInfoButton.addEventListener('click', getUserInfo);
+        
+        // Check if we're on a callback
+        if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
+            handleCallback();
+        }
+    </script>
+</body>
+</html>

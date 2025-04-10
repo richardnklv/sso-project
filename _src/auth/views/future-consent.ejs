@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorize Access | Unified Access</title>
+    <style>
+        :root {
+            --primary-bg: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --error: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.08);
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-bg: #0f172a;
+                --glass-bg: rgba(30, 41, 59, 0.7);
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--primary-bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
+                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+            transition: var(--transition);
+        }
+
+        .ambient-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+            background: 
+                radial-gradient(circle at 70% 30%, var(--accent-light) 0%, transparent 50%),
+                radial-gradient(circle at 30% 70%, var(--success) 0%, transparent 50%);
+            filter: blur(50px);
+            animation: ambientShift 30s infinite alternate ease-in-out;
+        }
+
+        @keyframes ambientShift {
+            0% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(1.2) rotate(3deg);
+            }
+            100% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .container {
+            max-width: 480px;
+            width: 90%;
+            padding: 2.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px) saturate(180%);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 1s ease, transform 1s ease;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container:hover::before {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-weight: 500;
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .client-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .client-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .client-name {
+            font-weight: 500;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .client-description {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .scope-list {
+            margin-bottom: 2rem;
+        }
+
+        .scope-header {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .scope-header svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 0.5rem;
+        }
+
+        .scope-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+
+        .scope-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .scope-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 1rem;
+            opacity: 0.8;
+            color: var(--accent);
+        }
+
+        .scope-details {
+            flex: 1;
+        }
+
+        .scope-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .scope-description {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .scope-level {
+            display: flex;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .scope-level-icon {
+            width: 14px;
+            height: 14px;
+            margin-right: 0.25rem;
+        }
+
+        .scope-level.high {
+            color: var(--warning);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .user-info svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .user-info strong {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-left: 0.25rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        form {
+            flex: 1;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .allow {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: white;
+        }
+
+        .allow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .deny {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .deny:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10, 10);
+            opacity: 0;
+            transition: transform 0.4s, opacity 0.7s;
+        }
+
+        button:active::after {
+            transform: scale(0, 0);
+            opacity: 0.3;
+            transition: 0s;
+        }
+
+        .security-info {
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .security-info svg {
+            width: 14px;
+            height: 14px;
+            margin-right: 0.5rem;
+        }
+
+        /* Animation for pulse effect on the security icon */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+        }
+
+        .security-info svg {
+            animation: pulse 2s infinite;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem 1.5rem;
+                width: 95%;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-bg"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>Access Request</h1>
+            <p class="subtitle">Review and authorize access</p>
+        </div>
+        
+        <div class="client-info">
+            <div class="client-logo">
+                <%= client.client_id.charAt(0).toUpperCase() %>
+            </div>
+            <div>
+                <div class="client-name"><%= client.client_id %></div>
+                <div class="client-description">is requesting access to your account</div>
+            </div>
+        </div>
+        
+        <div class="scope-list">
+            <div class="scope-header">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                Requested Permissions
+            </div>
+            
+            <% if (scope && scope.length > 0) { %>
+                <% const scopes = scope.split(' '); %>
+                <% for (const scopeItem of scopes) { %>
+                    <div class="scope-item">
+                        <% if (scopeItem === 'profile') { %>
+                            <svg class="scope-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        <% } else if (scopeItem === 'email') { %>
+                            <svg class="scope-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                        <% } else { %>
+                            <svg class="scope-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="16"></line>
+                                <line x1="8" y1="12" x2="16" y2="12"></line>
+                            </svg>
+                        <% } %>
+                        
+                        <div class="scope-details">
+                            <div class="scope-name"><%= scopeItem %></div>
+                            <div class="scope-description">
+                                <% if (scopeItem === 'profile') { %>
+                                    Access to your basic profile information, including your name and preferences
+                                <% } else if (scopeItem === 'email') { %>
+                                    View your primary email address
+                                <% } else { %>
+                                    Access to <%= scopeItem %> related data
+                                <% } %>
+                            </div>
+                            
+                            <div class="scope-level <%= scopeItem === 'profile' ? 'high' : '' %>">
+                                <svg class="scope-level-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                </svg>
+                                <%= scopeItem === 'profile' ? 'High' : 'Standard' %> permission level
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+            <% } else { %>
+                <div class="scope-item">
+                    <svg class="scope-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    
+                    <div class="scope-details">
+                        <div class="scope-name">Basic Access</div>
+                        <div class="scope-description">
+                            Verify your identity and access basic account information
+                        </div>
+                        
+                        <div class="scope-level">
+                            <svg class="scope-level-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            Standard permission level
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+        
+        <div class="user-info">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>You are signed in as <strong><%= user.username %></strong></span>
+        </div>
+        
+        <div class="actions">
+            <form action="/auth/consent" method="POST">
+                <button type="submit" name="approved" value="true" class="allow">Allow Access</button>
+            </form>
+            
+            <form action="/auth/consent" method="POST">
+                <button type="submit" name="approved" value="false" class="deny">Deny</button>
+            </form>
+        </div>
+        
+        <div class="security-info">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span>Your data is secure with zero-knowledge encryption</span>
+        </div>
+    </div>
+
+    <script>
+        // Subtle ripple effect for button clicks
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', function(e) {
+                const x = e.clientX - e.target.getBoundingClientRect().left;
+                const y = e.clientY - e.target.getBoundingClientRect().top;
+                
+                this.style.transform = 'scale(0.98)';
+                
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 200);
+            });
+        });
+
+        // Ambient background effect based on time
+        const updateAmbientBackground = () => {
+            const hour = new Date().getHours();
+            const ambientBg = document.querySelector('.ambient-bg');
+            
+            let opacity, hue;
+            
+            // Morning
+            if (hour >= 5 && hour < 12) {
+                opacity = 0.3;
+                hue = 200; // Blue-ish
+            } 
+            // Afternoon
+            else if (hour >= 12 && hour < 18) {
+                opacity = 0.25;
+                hue = 45; // Yellow/orange
+            } 
+            // Evening
+            else if (hour >= 18 && hour < 22) {
+                opacity = 0.35;
+                hue = 340; // Purple/pink
+            } 
+            // Night
+            else {
+                opacity = 0.2;
+                hue = 240; // Dark blue
+            }
+            
+            ambientBg.style.opacity = opacity;
+            ambientBg.style.filter = `blur(50px) hue-rotate(${hue}deg)`;
+        };
+        
+        // Update on load and every 10 minutes
+        updateAmbientBackground();
+        setInterval(updateAmbientBackground, 600000);
+    </script>
+</body>
+</html>

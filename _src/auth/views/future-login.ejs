@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification | Unified Access</title>
+    <style>
+        :root {
+            --primary-bg: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --error: #ef4444;
+            --success: #10b981;
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.08);
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-bg: #0f172a;
+                --glass-bg: rgba(30, 41, 59, 0.7);
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--primary-bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
+                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 60%);
+            transition: var(--transition);
+        }
+
+        .ambient-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+            background: 
+                radial-gradient(circle at 70% 30%, var(--accent-light) 0%, transparent 50%),
+                radial-gradient(circle at 30% 70%, var(--success) 0%, transparent 50%);
+            filter: blur(50px);
+            animation: ambientShift 30s infinite alternate ease-in-out;
+        }
+
+        @keyframes ambientShift {
+            0% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(1.2) rotate(3deg);
+            }
+            100% {
+                opacity: 0.2;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .container {
+            max-width: 420px;
+            width: 90%;
+            padding: 2.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px) saturate(180%);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 1s ease, transform 1s ease;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container:hover::before {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        h1 {
+            font-weight: 500;
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            color: var(--text-primary);
+            transition: var(--transition);
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            opacity: 0.7;
+            transition: var(--transition);
+        }
+
+        .login-options {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-option {
+            flex: 1;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .login-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .login-option-icon {
+            width: 24px;
+            height: 24px;
+            opacity: 0.8;
+            transition: var(--transition);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10, 10);
+            opacity: 0;
+            transition: transform 0.4s, opacity 0.7s;
+        }
+
+        button:active::after {
+            transform: scale(0, 0);
+            opacity: 0.3;
+            transition: 0s;
+        }
+
+        .help-text {
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .help-text a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .help-text a:hover {
+            text-decoration: underline;
+        }
+
+        .voice-assist {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .voice-assist:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .voice-assist-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .biometric-hint {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .biometric-hint svg {
+            margin-right: 0.5rem;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Subtle hover effects for inputs */
+        .input-wrapper:hover input {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animation for ambient background shift based on time */
+        @keyframes timeShift {
+            0% {
+                opacity: 0.8;
+                background-position: 0% 50%;
+            }
+            50% {
+                opacity: 1;
+                background-position: 100% 50%;
+            }
+            100% {
+                opacity: 0.8;
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem 1.5rem;
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-bg"></div>
+    
+    <div class="container">
+        <h1>Welcome</h1>
+        <p class="subtitle">Verify your identity to continue</p>
+        
+        <div class="biometric-hint">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+            </svg>
+            <span>Biometric verification available</span>
+        </div>
+        
+        <form action="/auth/login" method="POST">
+            <input type="hidden" name="client_id" value="<%= client_id %>">
+            
+            <div class="login-options">
+                <div class="login-option" title="Fingerprint">
+                    <svg class="login-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 12.3c0 2.9 2.4 5.2 5.2 5.2h9.6c2.9 0 5.2-2.4 5.2-5.2V11"></path>
+                        <path d="M12 12v4"></path>
+                        <path d="M12 4v8"></path>
+                        <path d="M8 8.5v-1a4 4 0 0 1 8 0v1"></path>
+                    </svg>
+                </div>
+                <div class="login-option" title="Face ID">
+                    <svg class="login-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+                        <path d="M8 9h.01"></path>
+                        <path d="M16 9h.01"></path>
+                        <path d="M8 14h8"></path>
+                    </svg>
+                </div>
+                <div class="login-option" title="Voice Authentication">
+                    <svg class="login-option-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20"></path>
+                        <path d="M8 6v12"></path>
+                        <path d="M16 6v12"></path>
+                        <path d="M4 10v4"></path>
+                        <path d="M20 10v4"></path>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="username">Username</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+                    <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                </div>
+            </div>
+            
+            <% if (error) { %>
+                <div class="error">
+                    <% if (error === 'invalid_credentials') { %>
+                        Identity verification failed. Please try again.
+                    <% } else { %>
+                        <%= error %>
+                    <% } %>
+                </div>
+            <% } %>
+            
+            <button type="submit">Verify Identity</button>
+        </form>
+        
+        <div class="help-text">
+            Need assistance? <a href="#">Contact support</a>
+        </div>
+        
+        <div class="voice-assist" title="Voice assistance">
+            <svg class="voice-assist-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        // Ambient background shift based on time of day
+        const updateAmbientBackground = () => {
+            const hour = new Date().getHours();
+            const ambientBg = document.querySelector('.ambient-bg');
+            
+            let opacity, hue;
+            
+            // Morning
+            if (hour >= 5 && hour < 12) {
+                opacity = 0.3;
+                hue = 200; // Blue-ish
+            } 
+            // Afternoon
+            else if (hour >= 12 && hour < 18) {
+                opacity = 0.25;
+                hue = 45; // Yellow/orange
+            } 
+            // Evening
+            else if (hour >= 18 && hour < 22) {
+                opacity = 0.35;
+                hue = 340; // Purple/pink
+            } 
+            // Night
+            else {
+                opacity = 0.2;
+                hue = 240; // Dark blue
+            }
+            
+            ambientBg.style.opacity = opacity;
+            ambientBg.style.filter = `blur(50px) hue-rotate(${hue}deg)`;
+        };
+        
+        // Update on load and every 10 minutes
+        updateAmbientBackground();
+        setInterval(updateAmbientBackground, 600000);
+        
+        // Subtle ripple effect for button clicks
+        document.querySelector('button').addEventListener('mousedown', function(e) {
+            const x = e.clientX - e.target.getBoundingClientRect().left;
+            const y = e.clientY - e.target.getBoundingClientRect().top;
+            
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        });
+        
+        // Simulate biometric login options (purely visual)
+        document.querySelectorAll('.login-option').forEach(option => {
+            option.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 200);
+                
+                // Show "coming soon" message
+                alert('Biometric authentication coming soon.\nPlease use username/password for now.');
+            });
+        });
+        
+        // Voice assistant 
+        document.querySelector('.voice-assist').addEventListener('click', function() {
+            // Simulate voice assistant activation
+            this.classList.add('active');
+            setTimeout(() => {
+                this.classList.remove('active');
+                alert('Voice assistance: "Please say your username and password"');
+            }, 500);
+        });
+    </script>
+</body>
+</html>
