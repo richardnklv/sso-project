@@ -68,7 +68,6 @@ export const validateAuthorizationRequest = async (
 
   return { valid: true, client };
 };
-
 export const generateAuthorizationCode = async (
   clientId: string,
   userId: string,
@@ -77,12 +76,13 @@ export const generateAuthorizationCode = async (
   codeChallenge?: string,
   codeChallengeMethod?: 'plain' | 'S256'
 ): Promise<string> => {
-  // Generate a secure random authorization code
-  const code = crypto.randomBytes(32).toString('hex');
+  console.log('Generating auth code with params:', {
+    clientId: clientId.substring(0, 8) + '...',
+    redirectUri
+  });
   
-  // We'll set expiration to 10 minutes (600 seconds)
-  // Store in database
-  await AuthCodeModel.create({
+  // Create auth code in database
+  const authCode = await AuthCodeModel.create({
     clientId,
     userId,
     redirectUri,
@@ -92,16 +92,19 @@ export const generateAuthorizationCode = async (
     codeChallengeMethod
   });
   
-  return code;
+  console.log('Auth code created successfully:', authCode.code.substring(0, 8) + '...');
+  
+  // Return the code from the database instead of generating our own
+  return authCode.code;
 };
 
 export const validateTokenRequest = async (
   req: TokenRequest
-): Promise<{ 
-  valid: boolean; 
-  error?: string; 
-  client?: any; 
-  authCode?: any; 
+): Promise<{
+  valid: boolean;
+  error?: string;
+  client?: any;
+  authCode?: any;
   refreshToken?: any;
 }> => {
   // Validate grant type
@@ -118,7 +121,7 @@ export const validateTokenRequest = async (
     if (!req.client_secret) return { valid: false, error: 'missing_client_secret' };
     
     const authenticated = await ClientModel.verifyClientCredentials(
-      req.client_id, 
+      req.client_id,
       req.client_secret
     );
     
@@ -131,33 +134,69 @@ export const validateTokenRequest = async (
     if (!req.redirect_uri) return { valid: false, error: 'missing_redirect_uri' };
     
     try {
-      const authCode = await AuthCodeModel.validate({
-        code: req.code,
+      console.log('Validating auth code:', {
+        code: req.code.substring(0, 10) + '...',
         redirectUri: req.redirect_uri
       });
       
+      // Find the auth code first
+      const authCode = await AuthCodeModel.findByCode(req.code);
+      if (!authCode) {
+        console.log('Auth code not found');
+        return { valid: false, error: 'invalid_grant' };
+      }
+      
+      console.log('Auth code found, checking client_id match');
       // Verify the code belongs to the right client
       if (authCode.client_id !== client.id) {
+        console.log('Client ID mismatch', {
+          codeClientId: authCode.client_id,
+          requestClientId: client.id
+        });
         return { valid: false, error: 'invalid_grant' };
+      }
+      
+      console.log('Checking redirect URI match');
+      // Check redirect URI match
+      if (authCode.redirect_uri !== req.redirect_uri) {
+        console.log('Redirect URI mismatch', {
+          storedUri: authCode.redirect_uri,
+          requestUri: req.redirect_uri
+        });
+        return { valid: false, error: 'invalid_redirect_uri' };
+      }
+      
+      console.log('Checking expiration');
+      // Check expiration
+      if (new Date() > authCode.expires_at) {
+        console.log('Code expired');
+        return { valid: false, error: 'expired_code' };
       }
       
       // Handle PKCE if required
       if (authCode.code_challenge && !req.code_verifier) {
+        console.log('Missing code verifier');
         return { valid: false, error: 'missing_code_verifier' };
       }
       
       if (authCode.code_challenge && req.code_verifier) {
+        console.log('Verifying PKCE');
         const verified = verifyPKCE(
           req.code_verifier,
           authCode.code_challenge,
           authCode.code_challenge_method as 'plain' | 'S256'
         );
         
-        if (!verified) return { valid: false, error: 'invalid_code_verifier' };
+        if (!verified) {
+          console.log('Invalid code verifier');
+          return { valid: false, error: 'invalid_code_verifier' };
+        }
       }
       
+      console.log('Auth code validation successful');
       return { valid: true, client, authCode };
     } catch (error) {
+      console.error('Auth code validation error:', error);
       return { valid: false, error: 'invalid_grant' };
     }
   }
@@ -178,6 +217,7 @@ export const validateTokenRequest = async (
       
       return { valid: true, client, refreshToken };
     } catch (error) {
+      console.error('Refresh token validation error:', error);
       return { valid: false, error: 'invalid_grant' };
     }
   }

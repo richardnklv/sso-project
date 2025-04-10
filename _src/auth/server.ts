@@ -99,6 +99,8 @@ app.get('/oauth/authorize', async (req, res, next) => {
 // OAuth Token endpoint
 app.post('/oauth/token', async (req, res, next) => {
   try {
+    console.log('Token request body:', req.body);
+
     // Validate the token request
     const tokenReq: oauth.TokenRequest = {
       grant_type: req.body.grant_type,
@@ -116,15 +118,18 @@ app.post('/oauth/token', async (req, res, next) => {
       const validation = await oauth.validateTokenRequest(tokenReq);
       
       if (!validation.valid) {
+        console.log('Token validation failed:', validation.error);
         return res.status(400).json({
           error: validation.error || 'invalid_request',
           error_description: 'The token request is invalid'
         });
       }
 
+      console.log('Token request validated successfully');
+
       // Exchange the authorization code for tokens
       const tokens = await oauth.generateTokens(
-        validation.client!.client_id,
+        validation.client!.id, // Use the client ID (UUID), not the client_id string
         validation.authCode!.user_id,
         validation.authCode!.scope || undefined
       );
@@ -140,16 +145,19 @@ app.post('/oauth/token', async (req, res, next) => {
       const validation = await oauth.validateTokenRequest(tokenReq);
       
       if (!validation.valid) {
+        console.log('Refresh validation failed:', validation.error);
         return res.status(400).json({
           error: validation.error || 'invalid_request',
           error_description: 'The refresh token request is invalid'
         });
       }
 
+      console.log('Refresh token request validated successfully');
+
       // Refresh the access token
       const tokens = await oauth.refreshAccessToken(
         tokenReq.refresh_token!,
-        validation.client!.client_id
+        validation.client!.id  // Use the client ID (UUID), not the client_id string
       );
 
       // Return the new tokens
@@ -164,6 +172,7 @@ app.post('/oauth/token', async (req, res, next) => {
   } catch (error) {
     // Handle specific OAuth errors
     if (error instanceof Error) {
+      console.error('Token endpoint error:', error);
       if (error.message === 'invalid_grant') {
         return res.status(400).json({
           error: 'invalid_grant',
@@ -178,8 +187,10 @@ app.post('/oauth/token', async (req, res, next) => {
 // Token revocation endpoint
 app.post('/oauth/revoke', async (req, res, next) => {
   try {
+    console.log('Revoke request body:', req.body);
     const token = req.body.token;
     const clientId = req.body.client_id;
+    const clientSecret = req.body.client_secret;
     
     if (!token || !clientId) {
       return res.status(400).json({
@@ -188,12 +199,40 @@ app.post('/oauth/revoke', async (req, res, next) => {
       });
     }
 
+    // Verify client
+    const client = await ClientModel.findByClientId(clientId);
+    if (!client) {
+      return res.status(400).json({
+        error: 'invalid_client',
+        error_description: 'Invalid client'
+      });
+    }
+
+    // For confidential clients, verify client_secret
+    if (client.client_type === 'confidential') {
+      if (!clientSecret) {
+        return res.status(400).json({
+          error: 'invalid_client',
+          error_description: 'Missing client secret'
+        });
+      }
+      
+      const authenticated = await ClientModel.verifyClientCredentials(clientId, clientSecret);
+      if (!authenticated) {
+        return res.status(400).json({
+          error: 'invalid_client',
+          error_description: 'Invalid client credentials'
+        });
+      }
+    }
+
     // Attempt to revoke the token
-    await oauth.revokeToken(token, clientId);
+    await oauth.revokeToken(token, client.id);
     
     // Always return success, even if token doesn't exist (per spec)
     res.status(200).json({});
   } catch (error) {
+    console.error('Revoke endpoint error:', error);
     next(error);
   }
 });
