@@ -1,9 +1,4 @@
-### HERE ARE OUTLINED PRINCIPLES WITH WHICH WE BUILD
-### THEY INCLUDE:
-### - PROPER SYSTEM ARCHITECTURE
-### - LANGUAGE SPECIFIC BEST PRACTISES
-### - OVERALL CLEANLINESS AND BEAUTIFUL SIMPLICITY
-### THESE ALL LEAD TOWARDS THE GOAL -> CLEAN, SIMPLE, BRILLIANT BOTH CODE AND SYSTEM ARCHITECTURE, LIKE A MARVELOUS MARBLE STATUE THAT HAS EVERYTHING NOT NEEDED CARVED OUT TO PRODUCE THE RESULT WHICH ITSELF IS ART. THIS IS NOT MONKEY CODE - THIS IS ART WE ARE CREATING.
+
 
 Follow conventions
 Code conventions are base rules that allow the creation of a uniform code base across an organization. Following them does not only increase the uniformity and therefore the quality of the code. Airbnb JavaScript Style Guide is very popular and recommended. We can complete them with rules just for TypeScript. To make it mandatory, we need a linter, formatter and strong code review. The code conventions must be dynamic and adaptable for each team and project. It is up to each team to define its convention.
