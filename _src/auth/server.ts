@@ -37,7 +37,14 @@ app.use(cors({
   origin: 'http://localhost:8080', // Allow our client app
   credentials: true, // Allow cookies to be sent
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Set-Cookie']
+}));
+
+// Add CORS preflight for all routes
+app.options('*', cors({
+  origin: 'http://localhost:8080',
+  credentials: true
 }));
 
 app.use(bodyParser.json());
@@ -379,6 +386,18 @@ app.post('/auth/consent', async (req, res, next) => {
 app.get('/test-client', (req, res) => {
   // Render a simple test client page
   res.render('test-client');
+});
+
+// Logout endpoint to clear the session
+app.get('/auth/logout', (req, res) => {
+  // Clear the session
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error destroying session:', err);
+    }
+    // Redirect to home or send success response
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
+  });
 });
 
 // Handle the redirect URI callback for testing

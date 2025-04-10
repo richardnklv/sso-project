@@ -3,81 +3,366 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | OAuth2 SSO</title>
+    <title>Login</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            line-height: 1.6;
+        :root {
+            --text-primary: #a3c2c2;
+            --text-secondary: #537a7a;
+            --accent: #2a5050;
+            --error: #804040;
+            --subtle-bg: #101820;
+            --highlight: #223440;
+        }
+
+        * {
             margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #050a10;
             min-height: 100vh;
-            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image: radial-gradient(rgba(20, 40, 50, 0.3) 1px, transparent 1px);
+            background-size: 50px 50px;
         }
+
         .container {
-            max-width: 400px;
-            width: 100%;
-            padding: 30px;
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
+            max-width: 380px;
+            width: 90%;
+            padding: 2.5rem 2rem;
+            background: var(--subtle-bg);
+            border: 1px solid #1a2836;
+            box-shadow: 0 0 30px rgba(0, 20, 40, 0.5);
+            position: relative;
         }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to right, transparent, #1d3644, transparent);
+        }
+
         h1 {
+            font-weight: 400;
+            font-size: 1.5rem;
+            margin-bottom: 1.75rem;
+            color: var(--text-primary);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
             text-align: center;
-            margin-bottom: 30px;
-            color: #333;
         }
+
+        h1::after {
+            content: "\\2022";
+            display: block;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            color: var(--accent);
+            opacity: 0.7;
+        }
+
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
         }
+
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #555;
+            margin-bottom: 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
-        input[type="text"],
-        input[type="password"] {
+
+        input {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
+            padding: 0.75rem 1rem;
+            background-color: #050a10;
+            border: 1px solid #162630;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.3s ease;
+            position: relative;
         }
+
+        input:focus {
+            border-color: var(--highlight);
+            box-shadow: 0 0 5px rgba(30, 60, 80, 0.5);
+        }
+
+        input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.4;
+        }
+
         button {
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            padding: 12px 20px;
             width: 100%;
-            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            background: #0a1520;
+            color: var(--text-primary);
+            border: 1px solid #1a2836;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
+            margin-top: 2rem;
+            position: relative;
+            transition: all 0.25s ease;
         }
+
+        button::before {
+            content: "> ";
+            opacity: 0.7;
+        }
+
         button:hover {
-            background-color: #3367d6;
+            background: #152535;
         }
+
+        button:active {
+            background: var(--accent);
+            color: #050a10;
+        }
+
         .error {
-            color: #d93025;
-            margin-top: 20px;
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.75rem;
+            margin-bottom: 1rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            line-height: 1.4;
+            position: relative;
+            padding-left: 0.25rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: #070d15;
+            border: 1px solid #162630;
+        }
+        
+        .status-light {
+            width: 10px;
+            height: 10px;
+            background: #3d7070;
+            border-radius: 50%;
+            margin-right: 10px;
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        
+        /* System crash animation effects */
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+                text-shadow: -2px 0 #00ffff, 2px 0 #ff00ff;
+            }
+            25% {
+                transform: translate(-2px, 2px);
+                text-shadow: 2px 0 #00ffff, -2px 0 #ff00ff;
+            }
+            50% {
+                transform: translate(2px, -2px);
+                text-shadow: -4px 0 #00ffff, 4px 0 #ff00ff;
+            }
+            75% {
+                transform: translate(-4px, 4px);
+                text-shadow: 4px 0 #00ffff, -4px 0 #ff00ff;
+            }
+            100% {
+                transform: translate(0);
+                text-shadow: -2px 0 #00ffff, 2px 0 #ff00ff;
+            }
+        }
+        
+        @keyframes screenShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            25% { opacity: 0.6; }
+            50% { opacity: 0.9; }
+            75% { opacity: 0.2; }
+        }
+        
+        @keyframes redBleep {
+            0%, 100% { background: var(--subtle-bg); }
+            25% { background: rgba(40, 10, 10, 0.9); }
+            50% { background: var(--subtle-bg); }
+            75% { background: rgba(36, 14, 14, 0.8); }
+        }
+        
+        /* Biometric scan success animations */
+        @keyframes scanGlow {
+            0% { box-shadow: 0 0 5px rgba(0, 255, 170, 0.3); background: var(--subtle-bg); }
+            50% { box-shadow: 0 0 30px rgba(0, 255, 170, 0.6); background: rgba(10, 40, 30, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(0, 255, 170, 0.3); background: var(--subtle-bg); }
+        }
+        
+        @keyframes scannerRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes scanLine {
+            0% { opacity: 0; top: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; top: 100%; }
+        }
+        
+        @keyframes characterChange {
+            0% { content: "9"; }
+            8% { content: "A"; }
+            16% { content: "3"; }
+            24% { content: "X"; }
+            32% { content: "7"; }
+            40% { content: "B"; }
+            48% { content: "2"; }
+            56% { content: "K"; }
+            64% { content: "8"; }
+            72% { content: "Z"; }
+            80% { content: "6"; }
+            88% { content: "F"; }
+            100% { content: "0"; }
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to right, transparent, #1d3644, transparent);
+        }
+        
+        .status-text {
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            color: var(--text-secondary);
+        }
+        
+        /* Biometric scan overlay styles */
+        .biometric-scan {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 15, 20, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
             text-align: center;
-            font-size: 14px;
+        }
+        
+        .scan-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .scan-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .scan-character {
+            width: 30px;
+            height: 30px;
+            background: #0a1520;
+            border: 1px solid rgba(0, 200, 150, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: #00c896;
+            position: relative;
+        }
+        
+        .scan-character:after {
+            content: "";
+            animation: characterChange 0.5s infinite;
+        }
+        
+        .scan-circle {
+            width: 150px;
+            height: 150px;
+            border: 2px solid rgba(0, 200, 150, 0.5);
+            border-radius: 50%;
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, #00c896, transparent);
+            transform-origin: top center;
+            animation: scannerRotate 2s linear infinite;
+        }
+        
+        .scan-result {
+            font-size: 1.2rem;
+            color: #00c896;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-align: center;
+            width: 100%;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Sign In</h1>
+        <h1>System Access</h1>
         
         <% if (error) { %>
             <div class="error">
                 <% if (error === 'invalid_credentials') { %>
-                    Invalid username or password. Please try again.
+                    :: Authentication failure ::
+                    Access denied: Invalid credentials
                 <% } else { %>
-                    <%= error %>
+                    :: System error :: <%= error %>
                 <% } %>
             </div>
         <% } %>
@@ -86,17 +371,140 @@
             <input type="hidden" name="client_id" value="<%= client_id %>">
             
             <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus>
+                <label for="username">Crew ID</label>
+                <input type="text" id="username" name="username" placeholder="Enter credentials" required autofocus>
             </div>
             
             <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <label for="password">Security Code</label>
+                <input type="password" id="password" name="password" placeholder="•••••••••" required>
             </div>
             
-            <button type="submit">Sign In</button>
+            <div class="status-indicator">
+                <span class="status-light"></span>
+                <span class="status-text">AWAITING AUTHENTICATION</span>
+            </div>
+            
+            <!-- Biometric scan overlay (initially hidden) -->
+            <div class="biometric-scan" style="display: none;">
+                <div class="scan-grid">
+                    <div class="scan-row">
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                    </div>
+                    <div class="scan-row">
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                        <span class="scan-character"></span>
+                    </div>
+                </div>
+                <div class="scan-circle">
+                    <div class="scan-line"></div>
+                </div>
+                <div class="scan-result">ANALYZING...</div>
+            </div>
+            
+            <button type="submit">INITIATE ACCESS SEQUENCE</button>
         </form>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const container = document.querySelector('.container');
+            const statusLight = document.querySelector('.status-light');
+            const statusText = document.querySelector('.status-text');
+            const submitButton = document.querySelector('button[type="submit"]');
+            
+            form.addEventListener('submit', function(e) {
+                // Prevent the default form submission
+                e.preventDefault();
+                
+                // For demo purposes, check if username exists to simulate valid credentials
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                // If any credentials are entered, show success animation (for demo)
+                if (username && password) {
+                    // Show success biometric scan
+                    
+                    // Update status indicator
+                    statusLight.style.background = '#00c896';
+                    statusText.textContent = 'IDENTITY REQUIRED';
+                    
+                    // Show the biometric scan overlay
+                    const scanOverlay = document.querySelector('.biometric-scan');
+                    scanOverlay.style.display = 'flex';
+                    // Start the scan animation sequence - much faster timing
+                    setTimeout(() => {
+                        const scanResult = document.querySelector('.scan-result');
+                        scanResult.textContent = 'ANALYZING SEQUENCE';
+                    }, 300);
+                    
+                    setTimeout(() => {
+                        const scanResult = document.querySelector('.scan-result');
+                        scanResult.textContent = 'MATCHING BIOMETRICS';
+                    }, 600);
+                    
+                    setTimeout(() => {
+                        const scanResult = document.querySelector('.scan-result');
+                        scanResult.textContent = 'IDENTITY CONFIRMED?';
+                        scanResult.style.color = '#00ff96';
+                        
+                        // Submit form after complete animation
+                        setTimeout(() => {
+                            form.submit();
+                        }, 300);
+                    }, 900);
+                    
+                    
+                } else {
+                    // Show error animation for empty fields
+                    
+                    // Update status indicator
+                    statusLight.style.background = '#ff4040';
+                    statusText.textContent = 'SYSTEM FAILURE DETECTED';
+                    
+                    // Apply crash animations
+                    container.style.animation = 'screenShake 0.5s cubic-bezier(.36,.07,.19,.97) both, redBleep 0.8s forwards';
+                    document.body.style.animation = 'flicker 0.5s linear both';
+                    submitButton.style.animation = 'glitch 0.3s cubic-bezier(.25, .46, .45, .94) both';
+                    
+                    // Add glitching text effect to headings
+                    document.querySelector('h1').style.animation = 'glitch 0.2s infinite';
+                    
+                    // Show random error messages
+                    setTimeout(() => {
+                        const messages = [
+                            '>> CRITICAL SYSTEM FAILURE',
+                            '>> REBOOTING CORE SYSTEMS',
+                            '>> BYPASSING SECURITY PROTOCOLS',
+                            '>> INITIATING EMERGENCY OVERRIDE'
+                        ];
+                        
+                        const messageElement = document.createElement('div');
+                        messageElement.style.color = '#ff4040';
+                        messageElement.style.fontFamily = 'Courier New, monospace';
+                        messageElement.style.marginTop = '10px';
+                        messageElement.style.fontSize = '0.8rem';
+                        messageElement.style.letterSpacing = '0.05em';
+                        messageElement.textContent = messages[Math.floor(Math.random() * messages.length)];
+                        
+                        form.appendChild(messageElement);
+                    }, 300);
+                    
+                    // Submit the form after the animation completes
+                    setTimeout(() => {
+                        form.submit();
+                    }, 800);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

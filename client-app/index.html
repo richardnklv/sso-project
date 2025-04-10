@@ -10,6 +10,7 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
+            line-height: 1.6;
         }
         button {
             padding: 10px 20px;
@@ -19,15 +20,33 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #0055aa;
         }
         pre {
             background: #f4f4f4;
             padding: 15px;
             border-radius: 4px;
             overflow: auto;
+            border: 1px solid #ddd;
         }
         .hidden {
-            display: none;
+            display: none !important;
+        }
+        #logout-button {
+            background: #dc3545;
+            margin-top: 20px;
+        }
+        #logout-button:hover {
+            background: #bd2130;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
         }
     </style>
 </head>
@@ -59,7 +78,7 @@
             clientSecret: 'client-secret',
             authUrl: 'http://localhost:3000/oauth/authorize',
             tokenUrl: 'http://localhost:3000/oauth/token',
-            redirectUri: 'http://localhost:8080/', // Now using our registered redirect URI
+            redirectUri: 'http://localhost:8080/',
             state: generateRandomString(16)
         };
         
@@ -101,7 +120,7 @@
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     body: params,
-                    credentials: 'include'  // Include cookies in the request
+                    credentials: 'include'
                 });
                 
                 if (!response.ok) {
@@ -128,7 +147,7 @@
                     const tokenResponse = await exchangeCodeForToken(params.code);
                     
                     // Display the token response
-                    document.getElementById('token-response').textContent = 
+                    document.getElementById('token-response').textContent =
                         JSON.stringify(tokenResponse, null, 2);
                     
                     // Show the token section
@@ -147,42 +166,49 @@
             }
         }
         
-        // Initialize the login flow
-        function initializeLogin() {
+        // Handle logout
+        async function logout() {
+            try {
+                // First call the server-side logout endpoint to clear SSO session
+                const logoutResponse = await fetch('http://localhost:3000/auth/logout', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (logoutResponse.ok) {
+                    console.log('Server-side logout successful');
+                } else {
+                    console.error('Server-side logout failed');
+                }
+            } catch (error) {
+                console.error('Error during server logout:', error);
+            } finally {
+                // Clear client-side session storage regardless of server response
+                sessionStorage.clear();
+                
+                // Show login section, hide token section
+                document.getElementById('login-section').classList.remove('hidden');
+                document.getElementById('token-section').classList.add('hidden');
+                
+                console.log('Logged out successfully');
+                
+                // Redirect to home page - force a complete refresh
+                window.location.href = window.location.origin + window.location.pathname;
+            }
+        }
+        
+        // Check authentication status
+        function checkAuth() {
             // Check if we already have an access token
             const accessToken = sessionStorage.getItem('access_token');
             if (accessToken) {
                 document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('token-section').classList.remove('hidden');
-                document.getElementById('token-response').textContent = 
+                document.getElementById('token-response').textContent =
                     "Using existing access token from session: " + accessToken;
-                return;
+                return true;
             }
-            
-            // Handle login button click
-            document.getElementById('login-button').addEventListener('click', function() {
-                // Build the authorization URL
-                const authUrl = new URL(config.authUrl);
-                authUrl.searchParams.append('client_id', config.clientId);
-                authUrl.searchParams.append('redirect_uri', config.redirectUri);
-                authUrl.searchParams.append('response_type', 'code');
-                authUrl.searchParams.append('state', config.state);
-                authUrl.searchParams.append('scope', 'profile');
-                
-                // Redirect to the authorization server
-                window.location.href = authUrl.toString();
-            });
-            
-            // Handle logout button click
-            document.getElementById('logout-button').addEventListener('click', function() {
-                // Clear session storage
-                sessionStorage.removeItem('access_token');
-                sessionStorage.removeItem('refresh_token');
-                
-                // Show login section again
-                document.getElementById('login-section').classList.remove('hidden');
-                document.getElementById('token-section').classList.add('hidden');
-            });
+            return false;
         }
         
         // Initialize the app
@@ -190,8 +216,28 @@
             // First check for redirect with code
             handleRedirect();
             
-            // Then initialize the login components
-            initializeLogin();
+            // Check if already authenticated
+            if (!checkAuth()) {
+                // Handle login button click
+                document.getElementById('login-button').addEventListener('click', function() {
+                    // Build the authorization URL
+                    const authUrl = new URL(config.authUrl);
+                    authUrl.searchParams.append('client_id', config.clientId);
+                    authUrl.searchParams.append('redirect_uri', config.redirectUri);
+                    authUrl.searchParams.append('response_type', 'code');
+                    authUrl.searchParams.append('state', config.state);
+                    authUrl.searchParams.append('scope', 'profile');
+                    
+                    // Redirect to the authorization server
+                    window.location.href = authUrl.toString();
+                });
+            }
+            
+            // Add logout handler
+            const logoutButton = document.getElementById('logout-button');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', logout);
+            }
         });
     </script>
 </body>
